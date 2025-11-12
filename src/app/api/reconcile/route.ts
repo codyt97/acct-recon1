@@ -12,32 +12,42 @@ const SCORE: Record<string, number> = {
   ERROR: 0,
 };
 
+type Mode = "PO" | "SHIP"; // SHIPDOC
+
 type Row = {
   orderNumber?: string;
   partyName?: string;
   trackingNumber?: string;
   assertedDate?: Date | null;
-  sourceMode?: "PO" | "SO" | "UPS"; // where the row came from
+  sourceMode?: "PO" | "SHIP" | "UPS"; // origin of the row
 };
 
-async function reconcileOne(mode: "PO" | "SO", r: Row) {
+// NOTE: we resolve SHIP mode against SO shipment activity in OT
+async function reconcileOne(mode: Mode, r: Row) {
   let orderExists = false;
   let packages: { tracking: string; date?: string | null }[] = [];
   let partyOT: string | undefined;
 
   if (r.orderNumber) {
-    const order = await getOrder(mode, r.orderNumber).catch(() => null);
+    // Map SHIP -> SO for order lookup (ShipDoc ties back to SO)
+    const lookupMode = mode === "SHIP" ? ("SO" as any) : ("PO" as any);
+    const order = await getOrder(lookupMode, r.orderNumber).catch(() => null);
     orderExists = !!order;
     partyOT =
       (order?.partyName as string | undefined) ??
       (order as any)?.vendorName ??
       (order as any)?.customerName;
-    const activity = orderExists ? await getActivity(mode, r.orderNumber).catch(() => null) : null;
+
+    const activity = orderExists
+      ? await getActivity(lookupMode, r.orderNumber).catch(() => null)
+      : null;
     packages = activity ? extractPackages(activity) : [];
   } else if (r.trackingNumber) {
+    // Tracking-only: SHIP -> search SO activity; PO -> search PO activity
+    const searchMode = mode === "SHIP" ? ("SO" as any) : ("PO" as any);
     const tracking = r.trackingNumber.toUpperCase().replace(/\s|-/g, "");
     const activity = await findByTracking(
-      mode,
+      searchMode,
       tracking,
       r.assertedDate ? r.assertedDate.toISOString().slice(0, 10) : undefined
     ).catch(() => null);
@@ -64,22 +74,22 @@ export async function POST(req: NextRequest) {
     const form = await req.formData();
 
     const poFile = form.get("poFile") as File | null;
-    const soFile = form.get("soFile") as File | null;
+    const shipFile = form.get("shipFile") as File | null; // SHIPDOC
     const upsFile = form.get("upsFile") as File | null;
 
-    if (!poFile && !soFile && !upsFile) {
-      return new Response("Upload at least one file: 'poFile' and/or 'soFile' and/or 'upsFile'", { status: 400 });
+    if (!poFile && !shipFile && !upsFile) {
+      return new Response("Upload at least one file: 'poFile' and/or 'shipFile' and/or 'upsFile'", { status: 400 });
     }
 
     const rows: Row[] = [];
 
-    const parseAndTag = async (f: File, tag: "PO" | "SO" | "UPS") => {
+    const parseAndTag = async (f: File, tag: "PO" | "SHIP" | "UPS") => {
       const parsed = await parseFile(f);
       for (const r of parsed) rows.push({ ...r, sourceMode: tag });
     };
 
     if (poFile) await parseAndTag(poFile, "PO");
-    if (soFile) await parseAndTag(soFile, "SO");
+    if (shipFile) await parseAndTag(shipFile, "SHIP");
     if (upsFile) await parseAndTag(upsFile, "UPS");
 
     if (!rows.length) return new Response("No data rows found in uploads.", { status: 400 });
@@ -90,12 +100,15 @@ export async function POST(req: NextRequest) {
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
 
-      // choose the preferred mode based on the source
-      let prefer: "PO" | "SO";
+      // prefer by source:
+      // PO rows -> PO first
+      // SHIP rows -> SHIP first
+      // UPS rows -> SHIP first (shipments), then PO
+      let prefer: Mode;
       if (r.sourceMode === "PO") prefer = "PO";
-      else if (r.sourceMode === "SO") prefer = "SO";
-      else prefer = "SO"; // UPS: shipments; try SO first
-      const other: "PO" | "SO" = prefer === "PO" ? "SO" : "PO";
+      else if (r.sourceMode === "SHIP" || r.sourceMode === "UPS") prefer = "SHIP";
+      else prefer = "SHIP";
+      const other: Mode = prefer === "PO" ? "SHIP" : "PO";
 
       try {
         const resPref = await reconcileOne(prefer, r);
@@ -106,9 +119,9 @@ export async function POST(req: NextRequest) {
 
         counts[pick.verdict] = (counts[pick.verdict] ?? 0) + 1;
 
-        // normalize per-column verdicts for table
+        // per-mode columns
         const poVerd = prefer === "PO" ? resPref.verdict : resOther.verdict;
-        const soVerd = prefer === "SO" ? resPref.verdict : resOther.verdict;
+        const shipVerd = prefer === "SHIP" ? resPref.verdict : resOther.verdict;
 
         details.push({
           row: i + 1,
@@ -122,7 +135,7 @@ export async function POST(req: NextRequest) {
           reason: pick.reason,
           dayDelta: pick.dayDelta,
           poVerdict: poVerd,
-          soVerdict: soVerd,
+          shipVerdict: shipVerd,
         });
       } catch (err: any) {
         counts["ERROR"] = (counts["ERROR"] ?? 0) + 1;
