@@ -11,12 +11,21 @@ async function authHeader() {
 export async function getOrder(mode: "PO" | "SO", orderNumber: string) {
   const url = mode === "PO" ? `${base}/purchase-orders` : `${base}/sales-orders`;
   const { data } = await axios.get(url, { params: { orderNumber }, headers: await authHeader() });
-  return data; // Make sure this includes partyName/vendorName/customerName
+  return data; // should include partyName/vendorName/customerName
 }
 
 export async function getActivity(mode: "PO" | "SO", orderNumber: string) {
   const url = mode === "PO" ? `${base}/receipts` : `${base}/shipments`;
   const { data } = await axios.get(url, { params: { orderNumber }, headers: await authHeader() });
+  return data;
+}
+
+/** NEW: find shipments/receipts by tracking number (and optional date) */
+export async function findByTracking(mode: "PO" | "SO", tracking: string, dateISO?: string) {
+  const url = mode === "PO" ? `${base}/receipts` : `${base}/shipments`;
+  const params: Record<string, string> = { tracking };
+  if (dateISO) params["date"] = dateISO; // adjust if your API expects a different key
+  const { data } = await axios.get(url, { params, headers: await authHeader() });
   return data;
 }
 
@@ -32,4 +41,10 @@ export function extractPackages(activity: any): { tracking: string; date?: strin
     }
   }
   return pkgs;
+}
+
+/** Pull a best-guess party name off the activity payload */
+export function extractParty(activity: any): string | undefined {
+  const first = activity?.docs?.[0];
+  return first?.partyName ?? first?.vendorName ?? first?.customerName ?? undefined;
 }
