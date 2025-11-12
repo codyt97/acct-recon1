@@ -1,5 +1,5 @@
 export function normName(s?: string | null) {
-  if (!s) return "";
+  if (!s) return ""; 
   return s
     .toLowerCase()
     .replace(/[,\.]/g, " ")
