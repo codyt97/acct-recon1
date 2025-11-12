@@ -1,6 +1,6 @@
 import * as XLSX from "xlsx";
-import Papa from "papaparse";
- 
+import * as Papa from "papaparse";
+
 export type UploadRow = {
   mode: "PO" | "SO";
   orderNumber: string;
@@ -20,7 +20,10 @@ export async function parseFile(file: File, mode: "PO" | "SO") {
     const ws = wb.Sheets[wb.SheetNames[0]];
     rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
   } else if (name.endsWith(".csv")) {
-    const parsed = Papa.parse(buf.toString("utf8"), { header: true, skipEmptyLines: true });
+    const parsed = Papa.parse<string>(buf.toString("utf8"), {
+      header: true,
+      skipEmptyLines: true
+    });
     rows = parsed.data as any[];
   } else {
     throw new Error("Unsupported file type (use CSV/XLSX)");
@@ -36,7 +39,7 @@ export async function parseFile(file: File, mode: "PO" | "SO") {
       orderNumber,
       partyName: String(r.partyName ?? "").trim() || undefined,
       trackingNumber: String(r.trackingNumber ?? "").trim() || undefined,
-      assertedDate,
+      assertedDate
     } satisfies UploadRow;
   });
 }
