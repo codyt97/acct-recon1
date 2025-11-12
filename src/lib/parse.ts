@@ -2,15 +2,14 @@ import * as XLSX from "xlsx";
 import * as Papa from "papaparse";
 
 export type UploadRow = {
-  mode: "PO" | "SO";
-  orderNumber?: string;           // ← optional now
+  orderNumber?: string;           // optional
   partyName?: string;
   trackingNumber?: string;
   assertedDate?: Date | null;
 };
 
 const HEADER_MAP: Record<string, "orderNumber" | "partyName" | "trackingNumber" | "assertedDate"> = {
-  // order number variants (optional)
+  // order number variants
   "ordernumber": "orderNumber",
   "order #": "orderNumber",
   "order": "orderNumber",
@@ -26,7 +25,7 @@ const HEADER_MAP: Record<string, "orderNumber" | "partyName" | "trackingNumber" 
   "document": "orderNumber",
   "documentnumber": "orderNumber",
 
-  // party/vendor/customer variants (optional)
+  // party/vendor/customer variants
   "party": "partyName",
   "partyname": "partyName",
   "vendor": "partyName",
@@ -34,7 +33,7 @@ const HEADER_MAP: Record<string, "orderNumber" | "partyName" | "trackingNumber" 
   "customer": "partyName",
   "customername": "partyName",
 
-  // tracking (this is what your sheet has)
+  // tracking
   "tracking": "trackingNumber",
   "trackingnumber": "trackingNumber",
   "tracking number": "trackingNumber",
@@ -66,7 +65,7 @@ function mapHeaders(rawHeaders: string[]) {
   return mapping;
 }
 
-export async function parseFile(file: File, mode: "PO" | "SO") {
+export async function parseFile(file: File) {
   const buf = Buffer.from(await file.arrayBuffer());
   const name = file.name.toLowerCase();
   let rows: any[] = [];
@@ -90,14 +89,12 @@ export async function parseFile(file: File, mode: "PO" | "SO") {
 
   const map = mapHeaders(headers);
 
-  // At least one of orderNumber or trackingNumber must exist in headers
+  // at least one of orderNumber or trackingNumber must exist
   const hasOrderHeader = !!map.orderNumber || "orderNumber" in rows[0];
   const hasTrackingHeader = !!map.trackingNumber || "trackingNumber" in rows[0];
-
   if (!hasOrderHeader && !hasTrackingHeader) {
     throw new Error(
-      `Missing required column(s): orderNumber or trackingNumber. ` +
-      `Found headers: ${headers.join(" | ")}`
+      `Missing required column(s): orderNumber or trackingNumber. Found headers: ${headers.join(" | ")}`
     );
   }
 
@@ -105,7 +102,6 @@ export async function parseFile(file: File, mode: "PO" | "SO") {
     const orderNumber = String(r[map.orderNumber as any] ?? r.orderNumber ?? "").trim() || undefined;
     const partyName = String(r[map.partyName as any] ?? r.partyName ?? "").trim() || undefined;
     const trackingNumber = String(r[map.trackingNumber as any] ?? r.trackingNumber ?? "").trim() || undefined;
-
     const rawDate = r[map.assertedDate as any] ?? r.assertedDate;
     const assertedDate = rawDate ? new Date(rawDate) : null;
 
@@ -113,12 +109,6 @@ export async function parseFile(file: File, mode: "PO" | "SO") {
       throw new Error(`Row ${idx + 1}: provide orderNumber or trackingNumber`);
     }
 
-    return {
-      mode,
-      orderNumber,
-      partyName,
-      trackingNumber,
-      assertedDate,
-    } as UploadRow;
+    return { orderNumber, partyName, trackingNumber, assertedDate } as UploadRow;
   });
 }
