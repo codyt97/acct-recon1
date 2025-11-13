@@ -1,5 +1,5 @@
 // src/app/page.tsx
-"use client";
+"use client"; 
 import { useState } from "react";
 
 type DetailRow = {
