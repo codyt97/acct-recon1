@@ -1,5 +1,5 @@
 // src/app/page.tsx
-"use client"; 
+"use client";
 import { useState } from "react";
 
 type DetailRow = {
@@ -183,10 +183,19 @@ export default function Home() {
                       <td style={cellMono}>{r.trackingUpload}</td>
                       <td style={cell}>{r.assertedDate || ""}</td>
                       <td style={{ ...cell, fontWeight: 700 }}>{r.verdict}</td>
-                      <td style={{ ...cell, maxWidth: 520, whiteSpace: "normal", wordBreak: "break-word" }}>
+                      <td
+                        style={{
+                          ...cell,
+                          maxWidth: 520,
+                          whiteSpace: "normal",
+                          wordBreak: "break-word",
+                        }}
+                      >
                         {r.reason}
                       </td>
-                      <td style={{ ...cell, textAlign: "right", width: 60 }}>{r.dayDelta ?? ""}</td>
+                      <td style={{ ...cell, textAlign: "right", width: 60 }}>
+                        {r.dayDelta ?? ""}
+                      </td>
                       <td style={cell}>{r.poVerdict ?? ""}</td>
                       <td style={cell}>{r.shipVerdict ?? ""}</td>
                     </tr>
@@ -204,15 +213,12 @@ export default function Home() {
 function colorForVerdict(verdict: DetailRow["verdict"]): { bg: string; fg: string } {
   switch (verdict) {
     case "MATCH_PO":
-      // light green
-      return { bg: "#d7f5d0", fg: "#102a12" };
+      return { bg: "#d7f5d0", fg: "#102a12" }; // light green
     case "MATCH_SHIPDOCS":
-      // dark green — use white text for contrast
-      return { bg: "#0b7f2d", fg: "#ffffff" };
+      return { bg: "#0b7f2d", fg: "#ffffff" }; // dark green
     case "UNMATCHED_UPS":
     default:
-      // light red
-      return { bg: "#ffd6d6", fg: "#5a0000" };
+      return { bg: "#ffd6d6", fg: "#5a0000" }; // light red
   }
 }
 
@@ -229,7 +235,7 @@ function LegendSwatch({ color, label, dark }: { color: string; label: string; da
           border: "1px solid rgba(0,0,0,0.15)",
         }}
       />
-      <span style={{ fontSize: 12, color: dark ? "#222" : "#333" }}>{label}</span>
+      <span style={{ fontSize: 12, color: dark ? "#222222" : "#333333" }}>{label}</span>
     </div>
   );
 }
@@ -254,14 +260,18 @@ function Uploader({
     >
       <div style={{ fontWeight: 600, marginBottom: 6 }}>{label}</div>
       <input type="file" onChange={(e) => onChange(e.target.files?.[0] ?? null)} />
-      {file && <div style={{ fontSize: 12, color: #555, marginTop: 6 }}>{file.name}</div>}
+      {file && (
+        <div style={{ fontSize: 12, color: "#555", marginTop: 6 }}>
+          {file.name}
+        </div>
+      )}
     </div>
   );
 }
 
 const cell: React.CSSProperties = {
   padding: "10px 12px",
-  borderBottom: "1px solid #eee",
+  borderBottom: "1px solid "#eee"",
   whiteSpace: "nowrap",
 };
 
