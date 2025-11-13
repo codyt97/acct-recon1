@@ -271,7 +271,7 @@ function Uploader({
 
 const cell: React.CSSProperties = {
   padding: "10px 12px",
-  borderBottom: "1px solid "#eee"",
+  borderBottom: "1px solid #eee",
   whiteSpace: "nowrap",
 };
 
